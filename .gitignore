@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production build
+dist/
+build/
+
+# Firebase configuration & local environment keys
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+firebase-debug.log
+.firebase/
+
+# OS systems
+.DS_Store
+Thumbs.db
