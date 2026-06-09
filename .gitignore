@@ -1,21 +1,25 @@
-# Dependencies
-node_modules/
-.pnp
-.pnp.js
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Production build
-dist/
-build/
+node_modules
+dist
+dist-ssr
+*.local
 
-# Firebase configuration & local environment keys
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-firebase-debug.log
-.firebase/
-
-# OS systems
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
 .DS_Store
-Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.env
