@@ -3,6 +3,7 @@ import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { readFile } from 'fs/promises';
 import dotenv from 'dotenv';
+import path from 'path';
 
 // Load environment variables (if needed for other configs)
 dotenv.config();
@@ -57,7 +58,7 @@ async function seedDatabase() {
     teams.forEach((team, index) => {
       // Use the team name as the document ID for easier querying later
       const teamRef = teamsCollection.doc(team.name.replace(/\s+/g, '-').toLowerCase());
-      
+
       batch.set(teamRef, {
         id: index + 1,
         name: team.name,
@@ -70,7 +71,7 @@ async function seedDatabase() {
 
     // Commit the batch write to Firestore
     await batch.commit();
-    
+
     console.log('✅ Successfully seeded all 48 teams into Firestore!');
     process.exit(0);
 

@@ -11,7 +11,7 @@ export default function PlayerLogin({ onLogin }) {
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!name.trim()) return;
-    
+
     setError('');
     setIsLoading(true);
 
@@ -27,7 +27,7 @@ export default function PlayerLogin({ onLogin }) {
         // Found them! Extract data and pass it up
         const userDoc = querySnapshot.docs[0];
         const userData = { id: userDoc.id, ...userDoc.data() };
-        
+
         // Save to browser memory so they stay logged in
         localStorage.setItem('fantasyUser', JSON.stringify(userData));
         onLogin(userData);
@@ -50,16 +50,16 @@ export default function PlayerLogin({ onLogin }) {
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <input
             type="text"
-            placeholder="e.g. Sharkie"
+            placeholder="e.g. Mitch"
             value={name}
             onChange={(e) => setName(e.target.value)}
             style={{ padding: '15px', fontSize: '1.2rem', borderRadius: '8px', border: 'none', textAlign: 'center', background: '#333', color: '#fff' }}
           />
-          
+
           {error && <div style={{ color: '#ff4444', fontSize: '0.9rem' }}>{error}</div>}
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={isLoading}
             style={{ padding: '15px', fontSize: '1.2rem', borderRadius: '8px', border: 'none', background: '#007bff', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
           >
