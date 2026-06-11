@@ -59,14 +59,21 @@ export default function MobileDashboard({ user, onLogout }) {
 
       for (const m of validMatches) {
         const docRef = doc(db, 'fixtures', String(m.id));
-        await setDoc(docRef, {
+        const matchData = {
           home: m.homeTeam.name,
           away: m.awayTeam.name,
           status: m.status,
-          date: m.utcDate,
-          homeScore: m.score?.fullTime?.home ?? 0,
-          awayScore: m.score?.fullTime?.away ?? 0
-        }, { merge: true });
+          date: m.utcDate
+        };
+
+        if (m.score?.fullTime?.home !== null && m.score?.fullTime?.home !== undefined) {
+          matchData.homeScore = m.score.fullTime.home;
+        }
+        if (m.score?.fullTime?.away !== null && m.score?.fullTime?.away !== undefined) {
+          matchData.awayScore = m.score.fullTime.away;
+        }
+
+        await setDoc(docRef, matchData, { merge: true });
       }
       console.log("🎉 Matches synced successfully!");
     } catch (err) {

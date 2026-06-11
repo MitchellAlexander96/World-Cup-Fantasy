@@ -44,14 +44,21 @@ async function importMatches() {
   console.log(`✅ Found ${validMatches.length} valid matches. Uploading...`);
 
   for (const m of validMatches) {
-    await setDoc(doc(db, 'fixtures', String(m.id)), {
+    const matchData = {
       home: m.homeTeam.name,
       away: m.awayTeam.name,
       status: m.status,
-      date: m.utcDate,
-      homeScore: m.score?.fullTime?.home ?? 0,
-      awayScore: m.score?.fullTime?.away ?? 0
-    });
+      date: m.utcDate
+    };
+
+    if (m.score?.fullTime?.home !== null && m.score?.fullTime?.home !== undefined) {
+      matchData.homeScore = m.score.fullTime.home;
+    }
+    if (m.score?.fullTime?.away !== null && m.score?.fullTime?.away !== undefined) {
+      matchData.awayScore = m.score.fullTime.away;
+    }
+
+    await setDoc(doc(db, 'fixtures', String(m.id)), matchData, { merge: true });
     console.log(`📤 Uploaded: ${m.homeTeam.name} vs ${m.awayTeam.name} (ID: ${m.id})`);
   }
   
