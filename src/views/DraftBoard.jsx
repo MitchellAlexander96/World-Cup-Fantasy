@@ -228,6 +228,11 @@ export default function DraftBoard() {
                     </span>
                     <div>
                       <strong style={{ fontSize: '1.1rem', display: 'block' }}>{u.name}</strong>
+                      {u.teams && u.teams.length > 0 && (
+                        <span style={{ fontSize: '0.8rem', color: '#aaa', display: 'block', marginTop: '2px' }}>
+                          ⚽ {u.teams.join(', ')}
+                        </span>
+                      )}
                       {isCurrent && <span style={{ fontSize: '0.75rem', color: '#00ccff', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Drafting...</span>}
                       {isNextUp && <span style={{ fontSize: '0.75rem', color: '#28a745', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Next Up</span>}
                     </div>

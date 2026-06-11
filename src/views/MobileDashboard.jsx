@@ -57,7 +57,9 @@ export default function MobileDashboard({ user, onLogout }) {
     return points;
   };
 
-  const myTeams = user.teams || [];
+  // Find the live user document from the ladder subscription to ensure real-time updates of their drafted teams
+  const liveUser = ladder.find(p => p.id === user.id) || user;
+  const myTeams = liveUser.teams || [];
   const myFixtures = fixtures.filter(m => myTeams.some(t => m.home.includes(t) || m.away.includes(t)));
 
   const liveMatches = myFixtures.filter(f => f.status === 'LIVE');
@@ -70,6 +72,14 @@ export default function MobileDashboard({ user, onLogout }) {
         <h2 style={{ margin: 0 }}>Welcome, {user.name}</h2>
         <button onClick={onLogout} style={{ background: '#333', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>Logout</button>
       </header>
+
+      {/* Your Drafted Teams Section */}
+      <div style={{ background: '#1a1a1a', padding: '15px 20px', borderRadius: '12px', marginBottom: '30px', border: '1px solid #333' }}>
+        <div style={{ fontSize: '0.8rem', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '5px' }}>Your Drafted Teams</div>
+        <strong style={{ fontSize: '1.2rem', color: '#00ccff' }}>
+          {myTeams.length > 0 ? myTeams.join(', ') : 'No teams drafted yet'}
+        </strong>
+      </div>
 
       <h3 style={{ color: '#aaa', fontSize: '0.9rem', textTransform: 'uppercase' }}>📅 Your Match Feed</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '40px' }}>

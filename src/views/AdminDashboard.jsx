@@ -126,7 +126,14 @@ export default function AdminDashboard() {
                   border: '1px solid rgba(255, 255, 255, 0.05)'
                 }}
               >
-                <span style={{ fontSize: '1.05rem', fontWeight: '500' }}>{player.name}</span>
+                <div>
+                  <span style={{ fontSize: '1.05rem', fontWeight: '500', display: 'block' }}>{player.name}</span>
+                  {player.teams && player.teams.length > 0 && (
+                    <span style={{ fontSize: '0.8rem', color: '#aaa', display: 'block', marginTop: '4px' }}>
+                      ⚽ {player.teams.join(', ')}
+                    </span>
+                  )}
+                </div>
                 <button 
                   onClick={() => handleDeletePlayer(player.id)}
                   style={{ 
