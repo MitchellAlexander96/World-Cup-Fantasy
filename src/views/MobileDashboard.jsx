@@ -114,10 +114,23 @@ export default function MobileDashboard({ user, onLogout }) {
     let points = 0;
     fixtures.forEach(m => {
       if (m.status !== 'FINISHED') return;
-      const owns = playerTeams.includes(m.home) || playerTeams.includes(m.away);
-      if (owns) {
-        if (m.homeScore === m.awayScore) points += 1;
-        else points += 3;
+      
+      const ownsHome = playerTeams.includes(m.home);
+      const ownsAway = playerTeams.includes(m.away);
+
+      if (ownsHome) {
+        if (m.homeScore > m.awayScore) {
+          points += 3;
+        } else if (m.homeScore === m.awayScore) {
+          points += 1;
+        }
+      }
+      if (ownsAway) {
+        if (m.awayScore > m.homeScore) {
+          points += 3;
+        } else if (m.homeScore === m.awayScore) {
+          points += 1;
+        }
       }
     });
     return points;
