@@ -101,6 +101,13 @@ export default function DraftBoard() {
   const handleRandomizeOrder = async () => {
     if (users.length < 2) return;
 
+    if (draftStarted) {
+      const confirmShuffle = window.confirm(
+        "Warning: The draft has already started! Shuffling the order now will change who drafts next. Are you sure you want to proceed?"
+      );
+      if (!confirmShuffle) return;
+    }
+
     setIsSpinning(true);
     try {
       const shuffled = [...users].sort(() => 0.5 - Math.random());
@@ -171,26 +178,24 @@ export default function DraftBoard() {
         <div style={{ flex: '1 1 300px', background: '#1a1a1a', padding: '25px', borderRadius: '12px', color: 'white', border: '1px solid #333', alignSelf: 'flex-start' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #333', paddingBottom: '10px' }}>
             <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#00ccff' }}>🎯 Draft Order</h3>
-            {!draftStarted && (
-              <button
-                onClick={handleRandomizeOrder}
-                disabled={isSpinning || users.length < 2}
-                style={{
-                  padding: '6px 12px',
-                  fontSize: '0.85rem',
-                  background: 'transparent',
-                  color: '#00ccff',
-                  border: '1px solid #00ccff',
-                  borderRadius: '6px',
-                  cursor: (isSpinning || users.length < 2) ? 'not-allowed' : 'pointer',
-                  opacity: (isSpinning || users.length < 2) ? 0.5 : 1,
-                  fontWeight: 'bold',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                🔀 Shuffle
-              </button>
-            )}
+            <button
+              onClick={handleRandomizeOrder}
+              disabled={isSpinning || users.length < 2}
+              style={{
+                padding: '6px 12px',
+                fontSize: '0.85rem',
+                background: 'transparent',
+                color: '#00ccff',
+                border: '1px solid #00ccff',
+                borderRadius: '6px',
+                cursor: (isSpinning || users.length < 2) ? 'not-allowed' : 'pointer',
+                opacity: (isSpinning || users.length < 2) ? 0.5 : 1,
+                fontWeight: 'bold',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              🔀 Shuffle
+            </button>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {users.map((u, index) => {
