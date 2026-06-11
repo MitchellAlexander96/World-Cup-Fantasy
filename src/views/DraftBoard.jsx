@@ -291,7 +291,7 @@ export default function DraftBoard() {
               onMouseDown={(e) => { if (!isSpinning && availableTeams.length >= 1) e.currentTarget.style.transform = 'scale(0.98)'; }}
               onMouseUp={(e) => { if (!isSpinning && availableTeams.length >= 1) e.currentTarget.style.transform = 'scale(1)'; }}
             >
-              {isSpinning ? 'Drafting...' : 'Reveal Next Player 🎲'}
+              {isSpinning ? 'Drafting...' : 'Reveal Next Team 🎲'}
             </button>
 
             {draftStarted && (

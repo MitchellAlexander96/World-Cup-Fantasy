@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../config/firebase';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, setDoc } from 'firebase/firestore';
 
 export default function MobileDashboard({ user, onLogout }) {
   const [ladder, setLadder] = useState([]);
@@ -37,6 +37,65 @@ export default function MobileDashboard({ user, onLogout }) {
     });
     return () => unsubscribe();
   }, []);
+
+  // 3. On-demand Match Sync on Game End
+  const syncMatches = async () => {
+    localStorage.setItem('last_match_sync', String(Date.now()));
+
+    try {
+      // Using corsproxy.io to bypass browser CORS constraints
+      const response = await fetch('https://corsproxy.io/?https://api.football-data.org/v4/competitions/WC/matches', {
+        headers: { 'X-Auth-Token': import.meta.env.VITE_FOOTBALL_DATA_KEY }
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (!data.matches) return;
+
+      const validMatches = data.matches.filter(m => m.homeTeam.name && m.awayTeam.name);
+
+      for (const m of validMatches) {
+        const docRef = doc(db, 'fixtures', String(m.id));
+        await setDoc(docRef, {
+          home: m.homeTeam.name,
+          away: m.awayTeam.name,
+          status: m.status,
+          date: m.utcDate,
+          homeScore: m.score?.fullTime?.home ?? 0,
+          awayScore: m.score?.fullTime?.away ?? 0
+        }, { merge: true });
+      }
+      console.log("🎉 Matches synced successfully!");
+    } catch (err) {
+      console.error("🔥 Error syncing matches:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (fixtures.length === 0) return;
+
+    // Check if any match is expected to have ended (3 hours duration) but not marked FINISHED in Firestore
+    const needsSync = fixtures.some(f => {
+      if (f.status === 'FINISHED') return false;
+      const matchTime = new Date(f.date).getTime();
+      const expectedEnd = matchTime + (3 * 60 * 60 * 1000); // 3 hours
+      return Date.now() > expectedEnd;
+    });
+
+    if (needsSync) {
+      const lastSync = localStorage.getItem('last_match_sync');
+      const now = Date.now();
+      const cooldown = 5 * 60 * 1000; // 5 minutes
+
+      if (!lastSync || (now - parseInt(lastSync, 10)) >= cooldown) {
+        console.log("🔄 Triggering match sync because a game should have ended...");
+        syncMatches();
+      }
+    }
+  }, [fixtures]);
 
   // Helper: Find who owns a country
   const getOwner = (country) => {
