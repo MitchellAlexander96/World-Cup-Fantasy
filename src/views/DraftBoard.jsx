@@ -7,16 +7,24 @@ export default function DraftBoard() {
   const [users, setUsers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [isSpinning, setIsSpinning] = useState(false);
-  
+
   // Animation states
   const [currentPlayer, setCurrentPlayer] = useState(null);
-  const [flashingTeams, setFlashingTeams] = useState(['???', '???']);
+  const [flashingTeams, setFlashingTeams] = useState(['???']);
 
   // Subscribe to real-time data
-useEffect(() => {
+  useEffect(() => {
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       // FIX: Spread doc.data() FIRST, then overwrite with the Firestore ID
-      setUsers(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
+      const userList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      // Sort by draftOrder if available, otherwise by createdAt ascending to keep draft order stable and fair
+      userList.sort((a, b) => {
+        if (a.draftOrder !== undefined && b.draftOrder !== undefined) {
+          return a.draftOrder - b.draftOrder;
+        }
+        return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+      });
+      setUsers(userList);
     });
 
     const unsubTeams = onSnapshot(collection(db, 'teams'), (snapshot) => {
@@ -27,114 +35,292 @@ useEffect(() => {
     return () => { unsubUsers(); unsubTeams(); };
   }, []);
 
+  // Compute next player reactively for rendering/status checks
+  const availableTeams = teams.filter(t => t.owner === null);
+  const minTeams = users.length > 0 ? Math.min(...users.map(u => (u.teams || []).length)) : 0;
+  const nextPlayer = users.find(u => (u.teams || []).length === minTeams);
+
   const handleRevealNext = async () => {
-    // 1. Find the next player who doesn't have 2 teams yet
-    const nextPlayer = users.find(u => !u.teams || u.teams.length < 2);
-    if (!nextPlayer) {
-      alert("Draft Complete! All players have their teams.");
+    if (users.length === 0) {
+      alert("No players registered yet!");
       return;
     }
 
-    // 2. Find all unassigned teams
-    const availableTeams = teams.filter(t => t.owner === null);
-    if (availableTeams.length < 2) {
-      alert("Not enough teams left in the pool!");
+    if (availableTeams.length === 0) {
+      alert("Draft Complete! All teams have been assigned.");
       return;
     }
 
-    // 3. Pick 2 actual winners
-    const shuffled = [...availableTeams].sort(() => 0.5 - Math.random());
-    const winningTeam1 = shuffled[0];
-    const winningTeam2 = shuffled[1];
+    if (!nextPlayer) return;
 
-    // 4. Start the suspense animation
+    // Pick 1 actual winner
+    const winningTeam = availableTeams[Math.floor(Math.random() * availableTeams.length)];
+
+    // Start the suspense animation
     setCurrentPlayer(nextPlayer);
     setIsSpinning(true);
 
     let spins = 0;
     const spinInterval = setInterval(() => {
-      // Flash random team names for the slot machine effect
-      const random1 = availableTeams[Math.floor(Math.random() * availableTeams.length)].name;
-      const random2 = availableTeams[Math.floor(Math.random() * availableTeams.length)].name;
-      setFlashingTeams([random1, random2]);
+      // Flash a random team name for the slot machine effect
+      const randomTeam = availableTeams[Math.floor(Math.random() * availableTeams.length)].name;
+      setFlashingTeams([randomTeam]);
       spins++;
 
       // Stop after ~3 seconds (30 interval ticks)
       if (spins > 30) {
         clearInterval(spinInterval);
-        setFlashingTeams([winningTeam1.name, winningTeam2.name]);
-        lockInDraft(nextPlayer, winningTeam1, winningTeam2);
+        setFlashingTeams([winningTeam.name]);
+        lockInDraft(nextPlayer, winningTeam);
       }
     }, 100);
   };
 
-  const lockInDraft = async (player, team1, team2) => {
+  const lockInDraft = async (player, team) => {
     const batch = writeBatch(db);
 
-    // Update the player doc
+    // Update the player doc by appending the new team
     const playerRef = doc(db, 'users', player.id);
-    batch.update(playerRef, { 
-      teams: [team1.name, team2.name] 
+    const currentTeams = player.teams || [];
+    batch.update(playerRef, {
+      teams: [...currentTeams, team.name]
     });
 
-    // Update the two team docs to assign the owner
-    const team1Ref = doc(db, 'teams', team1.id);
-    const team2Ref = doc(db, 'teams', team2.id);
-    batch.update(team1Ref, { owner: player.id });
-    batch.update(team2Ref, { owner: player.id });
+    // Update the team doc to assign the owner
+    const teamRef = doc(db, 'teams', team.id);
+    batch.update(teamRef, { owner: player.id });
 
     await batch.commit();
     setIsSpinning(false);
   };
 
+  // Determine if draft has started (any player has teams assigned)
+  const draftStarted = users.some(u => u.teams && u.teams.length > 0);
+
+  // Randomize/Shuffle the draft order persistently in Firestore
+  const handleRandomizeOrder = async () => {
+    if (users.length < 2) return;
+
+    setIsSpinning(true);
+    try {
+      const shuffled = [...users].sort(() => 0.5 - Math.random());
+      const batch = writeBatch(db);
+
+      shuffled.forEach((user, index) => {
+        const userRef = doc(db, 'users', user.id);
+        batch.update(userRef, { draftOrder: index });
+      });
+
+      await batch.commit();
+    } catch (err) {
+      console.error("Failed to randomize draft order:", err);
+      alert("Failed to randomize draft order.");
+    } finally {
+      setIsSpinning(false);
+    }
+  };
+
+  // Reset the entire draft state locally and persistently in Firestore
+  const handleResetDraft = async () => {
+    if (!window.confirm("Are you sure you want to reset the draft? This will clear all assigned teams!")) {
+      return;
+    }
+
+    setIsSpinning(true);
+    try {
+      const batch = writeBatch(db);
+
+      // Reset each player's teams array and points
+      users.forEach(user => {
+        const userRef = doc(db, 'users', user.id);
+        batch.update(userRef, { teams: [], totalPoints: 0 });
+      });
+
+      // Reset each team's owner field
+      teams.forEach(team => {
+        const teamRef = doc(db, 'teams', team.id);
+        batch.update(teamRef, { owner: null });
+      });
+
+      await batch.commit();
+      setCurrentPlayer(null);
+      setFlashingTeams(['???']);
+      alert("Draft reset successfully!");
+    } catch (err) {
+      console.error("Failed to reset draft:", err);
+      alert("Failed to reset draft.");
+    } finally {
+      setIsSpinning(false);
+    }
+  };
+
   return (
-    <div style={{ padding: '40px', maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
-      <h1>🎰 Live Draft Engine</h1>
-      
+    <div style={{ background: '#121212', color: '#fff', minHeight: '100vh', width: '100%' }}>
+      <div style={{ padding: '40px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'sans-serif' }}>
+        <h1 style={{ textAlign: 'center', marginBottom: '10px' }}>🎰 World Cup Live Draft </h1>
+
       {/* --- DEBUG COUNTER --- */}
-      <p style={{ color: '#aaa', fontSize: '0.9rem' }}>
-        Database Status: {teams.length} total teams loaded | {teams.filter(t => t.owner === null).length} unassigned teams available
+      <p style={{ color: '#aaa', fontSize: '0.9rem', textAlign: 'center', marginBottom: '30px' }}>
+        Database Status: {teams.length} total teams loaded | {availableTeams.length} unassigned teams available
       </p>
-      
-      {/* The Stage */}
-      <div style={{ background: '#1a1a1a', padding: '40px', borderRadius: '12px', color: 'white', minHeight: '300px', display: 'flex', flexDirection: 'column', justifyContent: 'center', marginBottom: '30px' }}>
-        {currentPlayer ? (
-          <>
-            <h2 style={{ color: '#00ccff', fontSize: '2rem', margin: '0 0 20px 0' }}>{currentPlayer.name} is on the clock...</h2>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
-              <div style={{ fontSize: '2rem', padding: '20px', background: '#333', borderRadius: '8px', minWidth: '200px' }}>
-                {flashingTeams[0]}
-              </div>
-              <div style={{ fontSize: '2rem', padding: '20px', background: '#333', borderRadius: '8px', minWidth: '200px' }}>
-                {flashingTeams[1]}
-              </div>
-            </div>
-          </>
-        ) : (
-          <h2 style={{ color: '#666' }}>Waiting for draft to begin...</h2>
-        )}
-      </div>
 
-      <button 
-        onClick={handleRevealNext} 
-        disabled={isSpinning || teams.filter(t => t.owner === null).length < 2}
-        style={{ padding: '15px 40px', fontSize: '1.5rem', cursor: (isSpinning || teams.filter(t => t.owner === null).length < 2) ? 'not-allowed' : 'pointer', background: (isSpinning || teams.filter(t => t.owner === null).length < 2) ? '#666' : '#28a745', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}
-      >
-        {isSpinning ? 'Drafting...' : 'Reveal Next Player 🎲'}
-      </button>
+      {/* Two Column Layout */}
+      <div style={{ display: 'flex', flexDirection: 'row', gap: '30px', flexWrap: 'wrap' }}>
 
-      {/* Completed Drafts Roster */}
-      <div style={{ marginTop: '50px', textAlign: 'left' }}>
-        <h3>Drafted Roster</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-          {users.filter(u => u.teams && u.teams.length > 0).map(u => (
-            <div key={u.id} style={{ padding: '15px', background: '#f8f9fa', borderLeft: '5px solid #007bff', borderRadius: '4px' }}>
-              <strong>{u.name}</strong>
-              <div style={{ color: '#555', marginTop: '5px' }}>⚽ {u.teams[0]} & {u.teams[1]}</div>
+        {/* Left Column: Draft Order */}
+        <div style={{ flex: '1 1 300px', background: '#1a1a1a', padding: '25px', borderRadius: '12px', color: 'white', border: '1px solid #333', alignSelf: 'flex-start' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #333', paddingBottom: '10px' }}>
+            <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#00ccff' }}>🎯 Draft Order</h3>
+            {!draftStarted && (
+              <button
+                onClick={handleRandomizeOrder}
+                disabled={isSpinning || users.length < 2}
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '0.85rem',
+                  background: 'transparent',
+                  color: '#00ccff',
+                  border: '1px solid #00ccff',
+                  borderRadius: '6px',
+                  cursor: (isSpinning || users.length < 2) ? 'not-allowed' : 'pointer',
+                  opacity: (isSpinning || users.length < 2) ? 0.5 : 1,
+                  fontWeight: 'bold',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                🔀 Shuffle
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {users.map((u, index) => {
+              const isCurrent = currentPlayer && currentPlayer.id === u.id && isSpinning;
+              const isNextUp = !isSpinning && nextPlayer && nextPlayer.id === u.id;
+
+              let cardBg = '#262626';
+              let cardBorder = '1px solid #3a3a3a';
+              if (isCurrent) {
+                cardBg = 'linear-gradient(135deg, #004d80 0%, #002244 100%)';
+                cardBorder = '1px solid #00ccff';
+              } else if (isNextUp) {
+                cardBg = 'linear-gradient(135deg, #1e3a1e 0%, #0d1f0d 100%)';
+                cardBorder = '1px solid #28a745';
+              }
+
+              return (
+                <div
+                  key={u.id}
+                  style={{
+                    padding: '15px',
+                    borderRadius: '8px',
+                    background: cardBg,
+                    border: cardBorder,
+                    transition: 'all 0.3s ease',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    boxShadow: (isCurrent || isNextUp) ? '0 4px 15px rgba(0,0,0,0.5)' : 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ color: isCurrent ? '#00ccff' : isNextUp ? '#28a745' : '#888', fontWeight: 'bold' }}>
+                      #{index + 1}
+                    </span>
+                    <div>
+                      <strong style={{ fontSize: '1.1rem', display: 'block' }}>{u.name}</strong>
+                      {isCurrent && <span style={{ fontSize: '0.75rem', color: '#00ccff', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Drafting...</span>}
+                      {isNextUp && <span style={{ fontSize: '0.75rem', color: '#28a745', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Next Up</span>}
+                    </div>
+                  </div>
+                  <span style={{ fontSize: '0.85rem', padding: '4px 10px', borderRadius: '12px', background: '#121212', color: '#aaa', fontWeight: 'bold' }}>
+                    {u.teams?.length || 0} {(u.teams?.length === 1) ? 'team' : 'teams'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right Column: Live Stage & Roster */}
+        <div style={{ flex: '2 1 600px', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+
+          {/* The Stage */}
+          <div style={{ background: '#1a1a1a', padding: '45px 30px', borderRadius: '12px', color: 'white', minHeight: '300px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', border: '1px solid #333' }}>
+            {currentPlayer ? (
+              <>
+                <h2 style={{ color: '#00ccff', fontSize: '2rem', margin: '0 0 25px 0', textShadow: '0 0 10px rgba(0, 204, 255, 0.3)' }}>
+                  {currentPlayer.name} is on the clock...
+                </h2>
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <div style={{ fontSize: '2.8rem', padding: '30px 50px', background: '#262626', borderRadius: '12px', minWidth: '300px', fontWeight: 'bold', border: '2px solid #444', color: '#fff', textTransform: 'uppercase', boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.8)' }}>
+                    {flashingTeams[0]}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <h2 style={{ color: '#666', fontSize: '1.75rem' }}>Waiting for draft to begin...</h2>
+            )}
+          </div>
+
+          <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
+            <button
+              onClick={handleRevealNext}
+              disabled={isSpinning || availableTeams.length < 1}
+              style={{
+                padding: '18px 40px',
+                fontSize: '1.5rem',
+                cursor: (isSpinning || availableTeams.length < 1) ? 'not-allowed' : 'pointer',
+                background: (isSpinning || availableTeams.length < 1) ? '#666' : 'linear-gradient(135deg, #28a745 0%, #218838 100%)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '10px',
+                fontWeight: 'bold',
+                boxShadow: (isSpinning || availableTeams.length < 1) ? 'none' : '0 4px 15px rgba(40, 167, 69, 0.4)',
+                transition: 'transform 0.1s ease, filter 0.2s ease'
+              }}
+              onMouseDown={(e) => { if (!isSpinning && availableTeams.length >= 1) e.currentTarget.style.transform = 'scale(0.98)'; }}
+              onMouseUp={(e) => { if (!isSpinning && availableTeams.length >= 1) e.currentTarget.style.transform = 'scale(1)'; }}
+            >
+              {isSpinning ? 'Drafting...' : 'Reveal Next Player 🎲'}
+            </button>
+
+            {draftStarted && (
+              <button
+                onClick={handleResetDraft}
+                disabled={isSpinning}
+                style={{
+                  padding: '18px 30px',
+                  fontSize: '1.2rem',
+                  cursor: isSpinning ? 'not-allowed' : 'pointer',
+                  background: isSpinning ? '#666' : 'linear-gradient(135deg, #dc3545 0%, #bd2130 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontWeight: 'bold',
+                  boxShadow: isSpinning ? 'none' : '0 4px 15px rgba(220, 53, 69, 0.4)',
+                  transition: 'transform 0.1s ease, filter 0.2s ease'
+                }}
+              >
+                Reset Draft 🔄
+              </button>
+            )}
+          </div>
+
+          {/* Completed Drafts Roster */}
+          <div style={{ marginTop: '20px', textAlign: 'left' }}>
+            <h3 style={{ fontSize: '1.4rem', borderBottom: '1px solid #333', paddingBottom: '10px', color: '#fff', textAlign: 'center' }}>Assigned Teams</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px' }}>
+              {users.filter(u => u.teams && u.teams.length > 0).map(u => (
+                <div key={u.id} style={{ padding: '15px', background: '#1a1a1a', borderLeft: '5px solid #007bff', borderRadius: '6px', border: '1px solid #333', borderLeftWidth: '5px' }}>
+                  <strong style={{ fontSize: '1.1rem', color: '#fff' }}>{u.name}</strong>
+                  <div style={{ color: '#aaa', marginTop: '8px', fontSize: '0.95rem' }}>⚽ {u.teams.join(', ')}</div>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </div>
+  </div>
   );
 }

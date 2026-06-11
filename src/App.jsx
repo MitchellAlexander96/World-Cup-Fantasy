@@ -25,9 +25,9 @@ function App() {
   // 1. If we are in Admin Mode
   if (currentStage === 'admin-startup') {
     return (
-      <div style={{ padding: '20px' }}>
-        <button onClick={() => setCurrentStage('player-app')} style={{ marginBottom: '20px' }}>Exit Admin Mode</button>
-        <button onClick={() => setCurrentStage('admin-draft')} style={{ marginBottom: '20px', marginLeft: '10px' }}>Go to Live Draft 🚀</button>
+      <div style={{ padding: '20px', minHeight: '100vh', background: '#121212', color: '#fff' }}>
+        <button onClick={() => setCurrentStage('player-app')} style={{ marginBottom: '20px', padding: '8px 16px', background: '#333', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Exit Admin Mode</button>
+        <button onClick={() => setCurrentStage('admin-draft')} style={{ marginBottom: '20px', marginLeft: '10px', padding: '8px 16px', background: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Go to Live Draft 🚀</button>
         <AdminDashboard />
       </div>
     );
@@ -35,8 +35,8 @@ function App() {
 
   if (currentStage === 'admin-draft') {
     return (
-      <div style={{ padding: '20px' }}>
-         <button onClick={() => setCurrentStage('admin-startup')} style={{ marginBottom: '20px' }}>Back to Admin ⚙️</button>
+      <div style={{ padding: '20px', minHeight: '100vh', background: '#121212', color: '#fff' }}>
+         <button onClick={() => setCurrentStage('admin-startup')} style={{ marginBottom: '20px', padding: '8px 16px', background: '#333', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Back to Admin ⚙️</button>
          <DraftBoard />
       </div>
     );
