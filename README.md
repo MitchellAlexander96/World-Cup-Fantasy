@@ -1,16 +1,63 @@
-# React + Vite
+# 🏆 World Cup Fantasy League
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A real-time, interactive World Cup Fantasy Draft application built with **React**, **Vite**, and **Firebase (Firestore)**. The app coordinates a live draft where participants are assigned World Cup teams, tracks live scores, and ranks players on a tournament leaderboard.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🚀 Key Features
 
-## React Compiler
+*   🎰 **Interactive Live Draft Engine**: 
+    *   **Round-Robin Allocation**: Automatically distributes all 48 World Cup teams evenly among registered players (one team per spin).
+    *   **Draft Order Sidebar**: Displays the sequential list of players, dynamically highlighting who is currently "on the clock" and who is "next up".
+    *   **Persisted Shuffling**: Shuffle the draft order with a single click before the draft begins—synced instantly in Firestore for all connected clients.
+    *   **Suspenseful Slot-Machine Ticker**: Features a live animation that flashes team names during draft rolls before locking in selections.
+    *   **Reset Draft Option**: Conveniently restart the draft at any time (requires confirmation) which clears all assigned teams and resets scores.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+*   ⚙️ **Admin Dashboard**: 
+    *   Register new players or delete participants.
+    *   Initialize the live draft workspace.
 
-## Expanding the ESLint configuration
+*   📱 **Player Mobile Experience**:
+    *   **Your Match Feed**: Tracks live scores, ended results, and upcoming matches specifically for the teams you were drafted.
+    *   **Tournament Leaderboard**: A real-time ladder ranking all players based on their teams' performances (3 points for a win, 1 point for a draw). Top three spots are highlighted with gold, silver, and bronze trophies!
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## 🛠️ Setup & Installation
+
+### 1. Install Dependencies
+Run the package installation:
+```bash
+npm install
+```
+
+### 2. Configure Firebase Environment
+Make sure you have a `.env` file in the root directory with your Firestore keys and endpoints:
+```env
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+```
+Also, ensure your Firebase Admin JSON credential is saved as `service-account.json` in the root folder for database seeding scripts.
+
+### 3. Seed World Cup Teams
+Seed the 48-team roster to your Firestore database:
+```bash
+node scripts/seedTeams.js
+```
+
+### 4. Start the Application
+Start the development server:
+```bash
+npm run dev
+```
+
+---
+
+## 💻 Tech Stack
+*   **Frontend**: React (Vite environment), modern dark-theme styling.
+*   **Database**: Firebase Firestore (for real-time synchronization between the Admin/Draft views and player phones).
+*   **Seeding Scripts**: Node.js scripts using the Firebase Admin SDK.
