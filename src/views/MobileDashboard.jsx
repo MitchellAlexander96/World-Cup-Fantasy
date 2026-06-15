@@ -145,8 +145,108 @@ export default function MobileDashboard({ user, onLogout }) {
   const nextMatch = myFixtures.filter(f => f.status === 'SCHEDULED').sort((a, b) => new Date(a.date) - new Date(b.date))[0];
   const resultedMatches = myFixtures.filter(f => f.status === 'FINISHED').sort((a, b) => new Date(b.date) - new Date(a.date));
 
+  // Determine if user's team is winning, draw, or losing
+  const getLiveMatchOutcome = (m) => {
+    const isHomeOwned = myTeams.some(t => m.home && m.home.includes(t));
+    const isAwayOwned = myTeams.some(t => m.away && m.away.includes(t));
+
+    if (m.homeScore === m.awayScore) {
+      return 'draw';
+    }
+
+    if (m.homeScore > m.awayScore) {
+      if (isHomeOwned) return 'winning';
+      if (isAwayOwned) return 'losing';
+    } else {
+      if (isAwayOwned) return 'winning';
+      if (isHomeOwned) return 'losing';
+    }
+
+    return 'draw';
+  };
+
+  const getLiveMatchTheme = (m) => {
+    const outcome = getLiveMatchOutcome(m);
+    if (outcome === 'winning') {
+      return {
+        cardStyle: {
+          background: 'linear-gradient(135deg, rgba(30, 70, 32, 0.45) 0%, rgba(16, 40, 20, 0.6) 100%)',
+          border: '1px solid rgba(40, 167, 69, 0.5)',
+          boxShadow: '0 8px 24px 0 rgba(40, 167, 69, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+          padding: '15px',
+          borderRadius: '12px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          transition: 'all 0.3s ease'
+        },
+        scoreStyle: {
+          fontWeight: 'bold',
+          color: '#39ff14',
+          textShadow: '0 0 8px rgba(57, 255, 20, 0.6)'
+        },
+        dotColor: '#28a745'
+      };
+    } else if (outcome === 'draw') {
+      return {
+        cardStyle: {
+          background: 'linear-gradient(135deg, rgba(70, 60, 20, 0.45) 0%, rgba(40, 35, 10, 0.6) 100%)',
+          border: '1px solid rgba(255, 193, 7, 0.5)',
+          boxShadow: '0 8px 24px 0 rgba(255, 193, 7, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+          padding: '15px',
+          borderRadius: '12px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          transition: 'all 0.3s ease'
+        },
+        scoreStyle: {
+          fontWeight: 'bold',
+          color: '#ffda79',
+          textShadow: '0 0 8px rgba(255, 218, 121, 0.6)'
+        },
+        dotColor: '#ffc107'
+      };
+    } else {
+      return {
+        cardStyle: {
+          background: 'linear-gradient(135deg, rgba(70, 20, 20, 0.45) 0%, rgba(40, 10, 10, 0.6) 100%)',
+          border: '1px solid rgba(220, 53, 69, 0.5)',
+          boxShadow: '0 8px 24px 0 rgba(220, 53, 69, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+          padding: '15px',
+          borderRadius: '12px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          transition: 'all 0.3s ease'
+        },
+        scoreStyle: {
+          fontWeight: 'bold',
+          color: '#ff4d4d',
+          textShadow: '0 0 8px rgba(255, 77, 77, 0.6)'
+        },
+        dotColor: '#dc3545'
+      };
+    }
+  };
+
   return (
     <div style={{ background: '#121212', minHeight: '100vh', color: '#fff', padding: '20px', fontFamily: 'sans-serif' }}>
+      <style>{`
+        @keyframes pulse-dot {
+          0% { transform: scale(0.95); opacity: 0.5; }
+          50% { transform: scale(1.15); opacity: 1; }
+          100% { transform: scale(0.95); opacity: 0.5; }
+        }
+        .live-dot {
+          display: inline-block;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          margin-right: 8px;
+          animation: pulse-dot 2s infinite ease-in-out;
+        }
+      `}</style>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
         <h2 style={{ margin: 0 }}>Welcome, {user.name}</h2>
         <button onClick={onLogout} style={{ background: '#333', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>Logout</button>
@@ -160,26 +260,68 @@ export default function MobileDashboard({ user, onLogout }) {
         </strong>
       </div>
 
-      <h3 style={{ color: '#aaa', fontSize: '0.9rem', textTransform: 'uppercase' }}>📅 Your Match Feed</h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '40px' }}>
-        {liveMatches.map(m => (
-          <div key={m.id} style={{ background: '#440000', border: '1px solid #ff4444', padding: '15px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between' }}>
-            <span>LIVE: {m.home} vs {m.away}</span>
-            <span style={{ fontWeight: 'bold', color: '#ff4444' }}>{m.homeScore} - {m.awayScore}</span>
-          </div>
-        ))}
-        {nextMatch && (
-          <div style={{ background: '#002244', border: '1px solid #00ccff', padding: '15px', borderRadius: '12px' }}>
-            <div style={{ fontSize: '0.7rem', color: '#00ccff' }}>NEXT UP</div>
-            <div style={{ fontWeight: 'bold' }}>{nextMatch.home}{getOwner(nextMatch.home)} vs {nextMatch.away}{getOwner(nextMatch.away)}</div>
+      <h3 style={{ color: '#aaa', fontSize: '0.9rem', textTransform: 'uppercase', marginBottom: '20px' }}>📅 Your Match Feed</h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '40px' }}>
+        {/* Live Matches Sub-section */}
+        {liveMatches.length > 0 && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#ff4d4d', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', fontWeight: 'bold' }}>
+              <span className="live-dot" style={{ backgroundColor: '#ff4d4d', marginRight: '0' }} />
+              Live Matches
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {liveMatches.map(m => {
+                const theme = getLiveMatchTheme(m);
+                return (
+                  <div key={m.id} style={theme.cardStyle}>
+                    <span style={{ display: 'flex', alignItems: 'center' }}>
+                      <span className="live-dot" style={{ backgroundColor: theme.dotColor }} />
+                      <span>LIVE: {m.home} vs {m.away}</span>
+                    </span>
+                    <span style={theme.scoreStyle}>{m.homeScore} - {m.awayScore}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
-        {resultedMatches.map(m => (
-          <div key={m.id} style={{ background: '#1a1a1a', border: '1px solid #333', padding: '15px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between' }}>
-            <span>{m.home} vs {m.away}</span>
-            <span>{m.homeScore} - {m.awayScore}</span>
+
+        {/* Next Match Sub-section */}
+        {nextMatch && (
+          <div>
+            <div style={{ fontSize: '0.75rem', color: '#00ccff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', fontWeight: 'bold' }}>
+              Next Match
+            </div>
+            <div style={{ background: '#002244', border: '1px solid #00ccff', padding: '15px', borderRadius: '12px' }}>
+              <div style={{ fontSize: '0.7rem', color: '#00ccff', marginBottom: '4px' }}>UPCOMING</div>
+              <div style={{ fontWeight: 'bold' }}>{nextMatch.home}{getOwner(nextMatch.home)} vs {nextMatch.away}{getOwner(nextMatch.away)}</div>
+            </div>
           </div>
-        ))}
+        )}
+
+        {/* Results Sub-section */}
+        {resultedMatches.length > 0 && (
+          <div>
+            <div style={{ fontSize: '0.75rem', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', fontWeight: 'bold' }}>
+              Results
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {resultedMatches.map(m => (
+                <div key={m.id} style={{ background: '#1a1a1a', border: '1px solid #333', padding: '15px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{m.home} vs {m.away}</span>
+                  <span>{m.homeScore} - {m.awayScore}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Fallback state */}
+        {liveMatches.length === 0 && !nextMatch && resultedMatches.length === 0 && (
+          <div style={{ color: '#666', fontSize: '0.9rem', fontStyle: 'italic', padding: '10px 0' }}>
+            No matches found in your feed.
+          </div>
+        )}
       </div>
 
       <h3 style={{ color: '#aaa', fontSize: '0.9rem', textTransform: 'uppercase' }}>🏆 Tournament Ladder</h3>
